@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DebuApp{% endblock %} — Keuangan Pribadi</title>
+    <meta name="description" content="DebuApp - Kelola hutang, arus kas, dan budget bulanan dengan mudah.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('dashboard') }}" class="nav-brand">
+                <span class="brand-icon">💸</span> DebuApp
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}"        class="nav-link {% if active_page == 'dashboard'    %}active{% endif %}">📊 Dashboard</a>
+                <a href="{{ url_for('transactions_page') }}" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">💰 Transaksi</a>
+                <a href="{{ url_for('debts_page') }}"       class="nav-link {% if active_page == 'debts'        %}active{% endif %}">💳 Hutang</a>
+                <a href="{{ url_for('goals_page') }}"       class="nav-link {% if active_page == 'goals'        %}active{% endif %}">🎯 Goals</a>
+                <a href="{{ url_for('networth_page') }}"    class="nav-link {% if active_page == 'networth'     %}active{% endif %}">📈 Net Worth</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}{% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}{% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script>
+        function toggleAddForm() {
+            const panel = document.getElementById('addFormPanel');
+            const arrow = document.getElementById('toggleArrow');
+            if (panel) {
+                panel.classList.toggle('open');
+                if (arrow) arrow.textContent = panel.classList.contains('open') ? '▲' : '▼';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            const alertError = document.querySelector('.alert-error');
+            const panel = document.getElementById('addFormPanel');
+            if (alertError && panel) panel.classList.add('open');
+        });
+    </script>
+</body>
+</html>

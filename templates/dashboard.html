@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Ringkasan keuangan aktual — {{ month_name }} {{ year }}</p>
+</div>
+
+{# ── Spending Limit Alerts ── #}
+{% if sp_alerts %}
+{% for alert in sp_alerts %}
+<div class="alert alert-{% if alert.over %}error{% else %}warning{% endif %}" style="margin-bottom:0.5rem;">
+    {% if alert.over %}🚨{% else %}⚠️{% endif %}
+    <b>{{ alert.category }}</b>: sudah Rp {{ "{:,.0f}".format(alert.spent) }} dari limit Rp {{ "{:,.0f}".format(alert.limit) }} ({{ alert.pct }}%)
+    {% if alert.over %} — <b>MELEBIHI BATAS!</b>{% else %} — mendekati batas{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{# ── Cashflow Bar ── #}
+{% if has_transactions %}
+<div class="cashflow-bar" style="margin-bottom:1.5rem;">
+    <div class="cashflow-item income">
+        <span class="cf-label">💚 Pemasukan</span>
+        <span class="cf-val">Rp {{ "{:,.0f}".format(actual_income) }}</span>
+    </div>
+    <div class="cashflow-sep">−</div>
+    <div class="cashflow-item expense">
+        <span class="cf-label">❤️ Pengeluaran</span>
+        <span class="cf-val">Rp {{ "{:,.0f}".format(actual_expense) }}</span>
+    </div>
+    <div class="cashflow-sep">−</div>
+    <div class="cashflow-item cicilan">
+        <span class="cf-label">💳 Cicilan</span>
+        <span class="cf-val">Rp {{ "{:,.0f}".format(total_installment) }}</span>
+    </div>
+    <div class="cashflow-sep">=</div>
+    <div class="cashflow-item {% if net_balance >= 0 %}net-pos{% else %}net-neg{% endif %}">
+        <span class="cf-label">🏦 Saldo Bersih</span>
+        <span class="cf-val" style="font-size:1.15rem;">Rp {{ "{:,.0f}".format(net_balance) }}</span>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info" style="margin-bottom:1.5rem;">
+    💡 Belum ada transaksi bulan ini.
+    <a href="{{ url_for('transactions_page') }}" style="color:var(--info);font-weight:600;margin-left:0.5rem;">Catat Pemasukan & Pengeluaran →</a>
+</div>
+{% endif %}
+
+{# ── Stat Cards ── #}
+<div class="grid-4" style="margin-bottom:1.5rem;">
+    <div class="stat-card success">
+        <div class="stat-label">💚 Total Pemasukan</div>
+        <div class="stat-value success">Rp {{ "{:,.0f}".format(actual_income) }}</div>
+        <div class="stat-sub">{{ month_name }} {{ year }}</div>
+    </div>
+    <div class="stat-card {% if net_balance >= 0 %}info{% else %}danger{% endif %}">
+        <div class="stat-label">🏦 Saldo Bersih</div>
+        <div class="stat-value {% if net_balance >= 0 %}info{% else %}danger{% endif %}">Rp {{ "{:,.0f}".format(net_balance) }}</div>
+        <div class="stat-sub">Estimasi harian: Rp {{ "{:,.0f}".format(daily_net) }}</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-label">📋 Cicilan / Bulan</div>
+        <div class="stat-value warning">Rp {{ "{:,.0f}".format(total_installment) }}</div>
+        <div class="stat-sub">{{ paid_count }}/{{ total_active }} dibayar bulan ini</div>
+    </div>
+    <div class="stat-card danger">
+        <div class="stat-label">🏦 Total Sisa Hutang</div>
+        <div class="stat-value danger">Rp {{ "{:,.0f}".format(total_debt) }}</div>
+        <div class="stat-sub">Dari semua hutang aktif</div>
+    </div>
+</div>
+
+{# ── Cash vs Digital Balance ── #}
+{% if has_transactions %}
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    <div class="card">
+        <div class="card-header">
+            <h2><span class="card-title-icon">💵</span>Uang Tunai (Cash)</h2>
+            <a href="{{ url_for('transactions_page') }}" class="btn btn-ghost btn-sm">Detail →</a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+            <div>
+                <div class="stat-label">Masuk</div>
+                <div style="font-weight:700;color:var(--success);">Rp {{ "{:,.0f}".format(wallet.cash_in) }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Keluar</div>
+                <div style="font-weight:700;color:var(--danger);">Rp {{ "{:,.0f}".format(wallet.cash_out) }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Saldo</div>
+                <div style="font-weight:700;color:{% if wallet.cash_net >= 0 %}var(--info){% else %}var(--danger){% endif %};">
+                    Rp {{ "{:,.0f}".format(wallet.cash_net) }}
+                </div>
+            </div>
+        </div>
+        <div class="progress-wrap" style="margin-top:0.875rem;">
+            {% set total_cash = wallet.cash_in + wallet.cash_out %}
+            <div class="progress-track">
+                <div class="progress-fill" style="width:{% if total_cash > 0 %}{{ [wallet.cash_in / total_cash * 100, 100]|min }}{% else %}0{% endif %}%;background:var(--success);"></div>
+            </div>
+            <div class="progress-label">Pemasukan vs Pengeluaran Tunai bulan ini</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2><span class="card-title-icon">📱</span>Uang Digital (E-wallet / Bank)</h2>
+            <a href="{{ url_for('transactions_page') }}" class="btn btn-ghost btn-sm">Detail →</a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+            <div>
+                <div class="stat-label">Masuk</div>
+                <div style="font-weight:700;color:var(--success);">Rp {{ "{:,.0f}".format(wallet.dig_in) }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Keluar</div>
+                <div style="font-weight:700;color:var(--danger);">Rp {{ "{:,.0f}".format(wallet.dig_out) }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Saldo</div>
+                <div style="font-weight:700;color:{% if wallet.dig_net >= 0 %}var(--info){% else %}var(--danger){% endif %};">
+                    Rp {{ "{:,.0f}".format(wallet.dig_net) }}
+                </div>
+            </div>
+        </div>
+        <div class="progress-wrap" style="margin-top:0.875rem;">
+            {% set total_dig = wallet.dig_in + wallet.dig_out %}
+            <div class="progress-track">
+                <div class="progress-fill" style="width:{% if total_dig > 0 %}{{ [wallet.dig_in / total_dig * 100, 100]|min }}{% else %}0{% endif %}%;background:var(--primary);"></div>
+            </div>
+            <div class="progress-label">Pemasukan vs Pengeluaran Digital bulan ini</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Rekomendasi ── #}
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">🧠</span>Rekomendasi Finansial</h2>
+        <span style="font-size:0.75rem;color:var(--text-muted);">Otomatis diperbarui</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        {% for rec in recommendations %}
+        <div class="rec-card rec-{{ rec.type }}">
+            <div class="rec-icon">{{ rec.icon }}</div>
+            <div class="rec-body">
+                <div class="rec-title">{{ rec.title }}</div>
+                <div class="rec-text">{{ rec.body | safe }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Status Hutang ── #}
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">💳</span>Status Hutang Bulan Ini</h2>
+        <a href="{{ url_for('debts_page') }}" class="btn btn-ghost btn-sm">Kelola →</a>
+    </div>
+    {% if debts %}
+    <div class="debt-list">
+        {% for d in debts %}
+        <div class="debt-item">
+            <div class="debt-item-top">
+                <div>
+                    <div class="debt-name">
+                        {{ d.name }}
+                        {% if d.not_started %}<span class="badge badge-muted">Belum Mulai</span>
+                        {% elif d.remaining_amount == 0 %}<span class="badge badge-success">✓ Lunas</span>
+                        {% elif d.is_paid_this_month %}<span class="badge badge-success">✓ Dibayar</span>
+                        {% else %}<span class="badge badge-danger">Belum Dibayar</span>{% endif %}
+                        {% if d.category %}<span class="badge badge-primary">{{ d.category }}</span>{% endif %}
+                    </div>
+                    <div class="debt-meta">
+                        Cicilan: <b>Rp {{ "{:,.0f}".format(d.monthly_installment) }}</b>/bln
+                        {% if d.estimated_payoff %} · Est. lunas: <b>{{ d.estimated_payoff.strftime('%b %Y') }}</b>{% endif %}
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);">Sisa</div>
+                    <div style="font-weight:700;color:var(--warning);">Rp {{ "{:,.0f}".format(d.remaining_amount) }}</div>
+                </div>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-track">
+                    <div class="progress-fill {% if d.progress_pct == 100 %}full{% endif %}" style="width:{{ d.progress_pct }};"></div>
+                </div>
+                <div class="progress-label">{{ d.progress_pct }}% lunas dari Rp {{ "{:,.0f}".format(d.total_amount) }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🎉</div>
+        <p>Tidak ada hutang aktif!</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Tren 6 Bulan ── #}
+<div class="card">
+    <div class="card-header">
+        <h2><span class="card-title-icon">📊</span>Tren 6 Bulan</h2>
+        {% if mom.income_change != 0 or mom.expense_change != 0 %}
+        <div style="font-size:0.78rem;color:var(--text-muted);">
+            vs {{ mom.prev_month }}:
+            <span style="color:{% if mom.income_change >= 0 %}var(--success){% else %}var(--danger){% endif %};">
+                Masuk {% if mom.income_change >= 0 %}↑{% else %}↓{% endif %}{{ mom.income_pct|abs }}%
+            </span> ·
+            <span style="color:{% if mom.expense_change <= 0 %}var(--success){% else %}var(--danger){% endif %};">
+                Keluar {% if mom.expense_change > 0 %}↑{% else %}↓{% endif %}{{ mom.expense_pct|abs }}%
+            </span>
+        </div>
+        {% endif %}
+    </div>
+    <div style="position:relative;height:220px;">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const raw = {{ trend_data | safe }};
+    const labels  = raw.map(d => d.label);
+    const incomes  = raw.map(d => d.income);
+    const expenses = raw.map(d => d.expense);
+    new Chart(document.getElementById('trendChart'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Pemasukan', data: incomes,  backgroundColor: 'rgba(63,185,80,0.75)',  borderRadius: 5 },
+                { label: 'Pengeluaran', data: expenses, backgroundColor: 'rgba(248,81,73,0.75)', borderRadius: 5 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#cdd6f4', font: { size: 11 } } } },
+            scales: {
+                x: { ticks: { color: '#7f849c' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#7f849c', callback: v => 'Rp '+Intl.NumberFormat('id').format(v) },
+                     grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}
+

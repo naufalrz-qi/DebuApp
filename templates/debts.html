@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Hutang{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Manajemen Hutang</h1>
+    <p>Tambah, bayar, dan pantau progress semua hutangmu di sini.</p>
+</div>
+
+{# ── Toggle Form Tambah ── #}
+<div class="add-form-toggle" onclick="toggleAddForm()">
+    <span>➕ Tambah Hutang Baru</span>
+    <span id="toggleArrow">▼</span>
+</div>
+
+<div id="addFormPanel" class="add-form-panel">
+    <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+            <h2>Form Tambah Hutang</h2>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Nama Hutang / Pinjaman</label>
+                    <input type="text" name="name" class="form-control" required placeholder="Contoh: Cicilan Motor">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Kategori</label>
+                    <select name="category" class="form-control">
+                        {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Total Hutang (Rp)</label>
+                    <input type="number" name="total_amount" class="form-control" step="0.01" required placeholder="Contoh: 15000000">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tenor (Bulan)</label>
+                    <input type="number" name="tenure_months" class="form-control" required placeholder="Contoh: 12" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tanggal Mulai</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Catatan (opsional)</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Contoh: Bank BCA, cicilan ke-3">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full" style="margin-top:0.5rem;">💾 Simpan Hutang</button>
+        </form>
+    </div>
+</div>
+
+{# ── Daftar Hutang ── #}
+<div class="card">
+    <div class="card-header">
+        <h2>💳 Daftar Hutang Aktif</h2>
+        <span style="font-size:0.8rem;color:var(--text-muted);">{{ debts|length }} entri</span>
+    </div>
+
+    {% if debts %}
+    <div class="debt-list">
+        {% for d in debts %}
+        <div class="debt-item">
+            <div class="debt-item-top">
+                <div style="flex:1;">
+                    <div class="debt-name">
+                        {{ d.name }}
+                        {% if d.not_started %}
+                        <span class="badge badge-muted">Belum Mulai</span>
+                        {% elif d.remaining_amount == 0 %}
+                        <span class="badge badge-success">✓ Lunas</span>
+                        {% elif d.is_paid_this_month %}
+                        <span class="badge badge-success">✓ Dibayar</span>
+                        {% else %}
+                        <span class="badge badge-danger">Belum Dibayar</span>
+                        {% endif %}
+                        {% if d.category %}
+                        <span class="badge badge-primary">{{ d.category }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="debt-meta" style="margin-top:0.3rem;">
+                        Mulai: {{ d.start_date.strftime('%d %b %Y') }}
+                        · Tenor: {{ d.tenure_months }} bln
+                        · Cicilan: <b>Rp {{ "{:,.0f}".format(d.monthly_installment) }}</b>/bln
+                        {% if d.estimated_payoff %} · Est. lunas: <b style="color:var(--success);">{{ d.estimated_payoff.strftime('%b %Y') }}</b>{% endif %}
+                    </div>
+                    {% if d.notes %}
+                    <div class="debt-meta" style="margin-top:0.2rem;color:var(--text-light);font-style:italic;">
+                        📝 {{ d.notes }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Sisa Hutang</div>
+                    <div style="font-size:1.2rem;font-weight:700;color:var(--warning);">Rp {{ "{:,.0f}".format(d.remaining_amount) }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-light);">dari Rp {{ "{:,.0f}".format(d.total_amount) }}</div>
+                </div>
+            </div>
+
+            {# Progress Bar #}
+            <div class="progress-wrap">
+                <div class="progress-track">
+                    <div class="progress-fill {% if d.progress_pct == 100 %}full{% endif %}" style="width:{{ d.progress_pct }}%;"></div>
+                </div>
+                <div class="progress-label">{{ d.progress_pct }}% Lunas · Sisa ≈ {{ d.months_remaining }} bulan lagi</div>
+            </div>
+
+            {# Actions #}
+            <div class="debt-actions">
+                {% if not d.is_paid_this_month and d.remaining_amount > 0 and not d.not_started %}
+                <form method="POST" style="display:flex;align-items:center;gap:0.4rem;">
+                    <input type="hidden" name="action" value="pay">
+                    <input type="hidden" name="debt_id" value="{{ d.id }}">
+                    <input type="number" name="pay_months" value="1" min="1" class="pay-months-input" title="Jumlah bulan">
+                    <span style="font-size:0.78rem;color:var(--text-muted);">bln</span>
+                    <button type="submit" class="btn btn-success btn-sm">✅ Bayar</button>
+                </form>
+                {% endif %}
+
+                <a href="{{ url_for('edit_debt', debt_id=d.id) }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
+
+                <form method="POST" style="margin-left:auto;">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="debt_id" value="{{ d.id }}">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus hutang \'{{ d.name }}\' dari daftar?')">🗑️ Hapus</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🎉</div>
+        <p>Hmph, baguslah kamu nggak punya hutang. Lanjutkan!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

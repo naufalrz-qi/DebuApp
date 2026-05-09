@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% block title %}Transaksi{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Arus Kas</h1>
+    <p>Catat pemasukan & pengeluaran aktual — {{ month_name }} {{ view_year }}</p>
+</div>
+
+{# ── Navigasi Bulan ── #}
+<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+    {% set pm = view_month - 1 if view_month > 1 else 12 %}
+    {% set py = view_year if view_month > 1 else view_year - 1 %}
+    {% set nm = view_month + 1 if view_month < 12 else 1 %}
+    {% set ny = view_year if view_month < 12 else view_year + 1 %}
+    <a href="{{ url_for('transactions_page', month=pm, year=py) }}" class="btn btn-ghost btn-sm">← {{ months[pm-1] }}</a>
+    <span style="font-weight:700;font-size:1rem;">{{ month_name }} {{ view_year }}</span>
+    <a href="{{ url_for('transactions_page', month=nm, year=ny) }}" class="btn btn-ghost btn-sm">{{ months[nm-1] }} →</a>
+    {% if view_month != today.month or view_year != today.year %}
+    <a href="{{ url_for('transactions_page') }}" class="btn btn-primary btn-sm" style="margin-left:auto;">Bulan Ini</a>
+    {% endif %}
+</div>
+
+{# ── Stat Cards ── #}
+<div class="grid-4" style="margin-bottom:1.5rem;">
+    <div class="stat-card success">
+        <div class="stat-label">💚 Pemasukan</div>
+        <div class="stat-value success">Rp {{ "{:,.0f}".format(actual_income) }}</div>
+        <div class="stat-sub">Uang masuk bulan ini</div>
+    </div>
+    <div class="stat-card danger">
+        <div class="stat-label">❤️ Pengeluaran</div>
+        <div class="stat-value danger">Rp {{ "{:,.0f}".format(actual_expense) }}</div>
+        <div class="stat-sub">Pengeluaran aktual</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-label">💳 Cicilan Hutang</div>
+        <div class="stat-value warning">Rp {{ "{:,.0f}".format(total_installment) }}</div>
+        <div class="stat-sub">Belum dibayar bulan ini</div>
+    </div>
+    <div class="stat-card {% if net_balance >= 0 %}info{% else %}danger{% endif %}">
+        <div class="stat-label">🏦 Saldo Bersih</div>
+        <div class="stat-value {% if net_balance >= 0 %}info{% else %}danger{% endif %}">Rp {{ "{:,.0f}".format(net_balance) }}</div>
+        <div class="stat-sub">Masuk − Keluar − Cicilan</div>
+    </div>
+</div>
+
+{# ── Cash vs Digital Summary ── #}
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    <div class="card wallet-summary-card cash-card">
+        <div class="card-header">
+            <h2>💵 Uang Tunai (Cash)</h2>
+        </div>
+        <div class="wallet-row"><span>Masuk</span><span style="color:var(--success);font-weight:700;">+Rp {{ "{:,.0f}".format(wallet.cash_in) }}</span></div>
+        <div class="wallet-row"><span>Keluar</span><span style="color:var(--danger);font-weight:700;">−Rp {{ "{:,.0f}".format(wallet.cash_out) }}</span></div>
+        <div class="wallet-row wallet-net">
+            <span>Saldo Bulan Ini</span>
+            <span style="color:{% if wallet.cash_net >= 0 %}var(--success){% else %}var(--danger){% endif %};">
+                Rp {{ "{:,.0f}".format(wallet.cash_net) }}
+            </span>
+        </div>
+    </div>
+    <div class="card wallet-summary-card digital-card">
+        <div class="card-header">
+            <h2>📱 Digital (E-wallet / Bank)</h2>
+        </div>
+        <div class="wallet-row"><span>Masuk</span><span style="color:var(--success);font-weight:700;">+Rp {{ "{:,.0f}".format(wallet.dig_in) }}</span></div>
+        <div class="wallet-row"><span>Keluar</span><span style="color:var(--danger);font-weight:700;">−Rp {{ "{:,.0f}".format(wallet.dig_out) }}</span></div>
+        <div class="wallet-row wallet-net">
+            <span>Saldo Bulan Ini</span>
+            <span style="color:{% if wallet.dig_net >= 0 %}var(--primary){% else %}var(--danger){% endif %};">
+                Rp {{ "{:,.0f}".format(wallet.dig_net) }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:1.5rem;">
+    {# ── Form Tambah Transaksi ── #}
+    <div class="card">
+        <div class="card-header"><h2>➕ Catat Transaksi</h2></div>
+        <form method="POST" id="txForm">
+            <input type="hidden" name="action" value="add">
+
+            <div class="form-group">
+                <label class="form-label">Tipe</label>
+                <div class="tx-type-toggle">
+                    <label class="tx-type-btn income-btn">
+                        <input type="radio" name="type" value="income" id="typeIncome" onchange="switchType('income')" checked>
+                        💚 Pemasukan
+                    </label>
+                    <label class="tx-type-btn expense-btn">
+                        <input type="radio" name="type" value="expense" id="typeExpense" onchange="switchType('expense')">
+                        ❤️ Pengeluaran
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">💳 Metode Pembayaran</label>
+                <div class="tx-type-toggle">
+                    <label class="tx-type-btn cash-btn">
+                        <input type="radio" name="payment_method" value="cash" onchange="switchWallet('cash')" checked>
+                        💵 Tunai
+                    </label>
+                    <label class="tx-type-btn digital-btn">
+                        <input type="radio" name="payment_method" value="digital" onchange="switchWallet('digital')">
+                        📱 Digital
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">🗂️ Dompet / Rekening</label>
+                <select name="wallet_name" id="walletSelect" class="form-control">
+                    <optgroup label="💵 Tunai" id="cashWalletGroup">
+                        {% for w in cash_wallets %}
+                        <option value="{{ w.name }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="📱 Digital" id="digitalWalletGroup" style="display:none;">
+                        {% for w in digital_wallets %}
+                        <option value="{{ w.name }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">📁 Kategori</label>
+                <select name="category" id="categorySelect" class="form-control">
+                    <optgroup label="Pemasukan" id="incomeOpts">
+                        {% for cat in income_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                    </optgroup>
+                    <optgroup label="Pengeluaran" id="expenseOpts" style="display:none;">
+                        {% for cat in expense_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">💰 Jumlah (Rp)</label>
+                <input type="number" name="amount" class="form-control" step="0.01" required placeholder="Contoh: 5000000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">📅 Tanggal</label>
+                <input type="date" name="date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">📝 Keterangan (opsional)</label>
+                <input type="text" name="description" class="form-control" placeholder="Contoh: Gaji Mei, Makan siang">
+            </div>
+            <label class="recurring-toggle" style="margin-bottom:.75rem;">
+                <input type="checkbox" name="is_recurring"> 🔁 Tandai sebagai transaksi berulang bulanan
+            </label>
+            <button type="submit" class="btn btn-primary btn-full" id="submitBtn">💚 Catat Pemasukan</button>
+        </form>
+
+        {# ── Transfer Antar Dompet ── #}
+        <div style="margin-top:1rem;">
+            <details>
+                <summary style="font-family:'Fredoka',sans-serif;font-weight:700;font-size:.9rem;color:var(--secondary);cursor:pointer;padding:.5rem;border:2px dashed var(--border-light);border-radius:var(--radius-xs);list-style:none;">🔄 Transfer Antar Dompet</summary>
+                <form method="POST" style="margin-top:.75rem;padding:.75rem;background:#f5f0ff;border:2px solid var(--border-light);border-radius:var(--radius-sm);">
+                    <input type="hidden" name="action" value="transfer">
+                    <div class="form-group">
+                        <label class="form-label">Dari Dompet</label>
+                        <select name="wallet_name" class="form-control">
+                            {% for w in all_wallets %}<option value="{{ w.name }}">{% if w.method=='cash' %}💵{% else %}📱{% endif %} {{ w.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ke Dompet</label>
+                        <select name="transfer_to_wallet" class="form-control">
+                            {% for w in all_wallets %}<option value="{{ w.name }}">{% if w.method=='cash' %}💵{% else %}📱{% endif %} {{ w.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Jumlah (Rp)</label>
+                        <input type="number" name="amount" class="form-control" required step="0.01" placeholder="Nominal transfer">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tanggal</label>
+                        <input type="date" name="date" class="form-control" value="{{ today.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">🔄 Catat Transfer</button>
+                </form>
+            </details>
+        </div>
+
+        {% if has_recurring_prev %}
+        <form method="POST" style="margin-top:.75rem;">
+            <input type="hidden" name="action" value="apply_recurring">
+            <button type="submit" class="btn btn-full" style="background:var(--accent);color:var(--text);border-color:var(--border);">🔁 Terapkan Transaksi Berulang Bulan Ini</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {# ── Dompet & Breakdown ── #}
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        {# Saldo per Dompet (Kumulatif) #}
+        <div class="card">
+            <div class="card-header">
+                <h2>🗂️ Saldo per Dompet</h2>
+                <button onclick="toggleAddForm()" class="btn btn-ghost btn-sm">+ Tambah</button>
+            </div>
+            <div id="addFormPanel" class="add-form-panel">
+                <form method="POST" style="margin-bottom:1rem;">
+                    <input type="hidden" name="action" value="add_wallet">
+                    <div class="input-row" style="flex-wrap:wrap;gap:0.5rem;">
+                        <div class="form-group" style="flex:2;min-width:120px;margin-bottom:0;">
+                            <input type="text" name="wallet_name_new" class="form-control" placeholder="Nama dompet (GoPay, BCA...)" required>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:100px;margin-bottom:0;">
+                            <select name="wallet_method" class="form-control">
+                                <option value="cash">💵 Tunai</option>
+                                <option value="digital">📱 Digital</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">Tambah</button>
+                    </div>
+                </form>
+            </div>
+            {% if cumulative_wallets %}
+            {# Buat lookup method dari daftar wallet #}
+            {% set wallet_methods = {} %}
+            {% for w in all_wallets %}{% set _ = wallet_methods.update({w.name: w.method}) %}{% endfor %}
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                {% for name, balance in cumulative_wallets.items() | sort %}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border-light);">
+                    <div>
+                        <span style="font-size:0.82rem;font-weight:600;">
+                            {% if wallet_methods.get(name) == 'cash' %}💵{% else %}📱{% endif %} {{ name }}
+                        </span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <span style="font-weight:700;font-size:0.85rem;color:{% if balance >= 0 %}var(--success){% else %}var(--danger){% endif %};">
+                            Rp {{ "{:,.0f}".format(balance) }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);font-size:0.85rem;">Belum ada saldo tercatat.</p>
+            {% endif %}
+
+            {# Kelola Dompet #}
+            {% if all_wallets %}
+            <details style="margin-top:1rem;">
+                <summary style="font-size:0.78rem;color:var(--text-muted);cursor:pointer;">⚙️ Kelola Dompet</summary>
+                <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.25rem;">
+                    {% for w in all_wallets %}
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;">
+                        <span style="font-size:0.82rem;">{% if w.method == 'cash' %}💵{% else %}📱{% endif %} {{ w.name }}</span>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="delete_wallet">
+                            <input type="hidden" name="wallet_id" value="{{ w.id }}">
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding:0.2rem 0.5rem;font-size:0.72rem;" onclick="return confirm('Hapus dompet {{ w.name }}?')">✕</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        {# Breakdown Kategori #}
+        <div class="card">
+            <div class="card-header"><h2>📊 Breakdown Kategori</h2></div>
+            {% if income_breakdown or expense_breakdown %}
+            {% if income_breakdown %}
+            <div style="margin-bottom:0.75rem;">
+                <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--success);margin-bottom:0.4rem;">💚 Pemasukan</div>
+                {% for cat, amt in income_breakdown.items() | sort(attribute=1, reverse=True) %}
+                <div class="wallet-row"><span style="font-size:0.82rem;">{{ cat }}</span><span style="color:var(--success);font-weight:600;font-size:0.82rem;">+Rp {{ "{:,.0f}".format(amt) }}</span></div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if expense_breakdown %}
+            <div>
+                <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:0.4rem;">❤️ Pengeluaran</div>
+                {% for cat, amt in expense_breakdown.items() | sort(attribute=1, reverse=True) %}
+                <div class="wallet-row"><span style="font-size:0.82rem;">{{ cat }}</span><span style="color:var(--danger);font-weight:600;font-size:0.82rem;">−Rp {{ "{:,.0f}".format(amt) }}</span></div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p style="color:var(--text-muted);font-size:0.85rem;">Belum ada transaksi bulan ini.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── Daftar Transaksi ── #}
+<div class="card">
+    <div class="card-header">
+        <h2>📋 Daftar Transaksi</h2>
+        <span style="font-size:0.8rem;color:var(--text-muted);">{{ transactions|length }} transaksi</span>
+    </div>
+    {% if transactions %}
+    <div class="tx-list">
+        {% for tx in transactions %}
+        <div class="tx-item tx-{{ tx.type }}">
+            <div class="tx-icon">
+                {% if tx.type == 'income' %}💚
+                {% elif tx.type == 'transfer' %}🔄
+                {% else %}❤️{% endif %}
+            </div>
+            <div class="tx-info">
+                <div class="tx-category">
+                    {{ tx.category }}
+                    <span class="badge {% if tx.payment_method == 'cash' %}badge-warning{% else %}badge-primary{% endif %}" style="font-size:.65rem;">
+                        {% if tx.payment_method == 'cash' %}💵{% else %}📱{% endif %}
+                        {{ tx.wallet_name or ('Tunai' if tx.payment_method == 'cash' else 'Digital') }}
+                    </span>
+                    {% if tx.is_recurring %}<span class="badge badge-muted" style="font-size:.62rem;">🔁 Rutin</span>{% endif %}
+                    {% if tx.type == 'transfer' and tx.transfer_to_wallet %}<span class="badge badge-muted" style="font-size:.62rem;">→ {{ tx.transfer_to_wallet }}</span>{% endif %}
+                </div>
+                <div class="tx-desc">
+                    {{ tx.description if tx.description else '—' }}
+                    <span class="tx-date">· {{ tx.date.strftime('%d %b %Y') }}</span>
+                </div>
+            </div>
+            <div class="tx-amount {{ tx.type }}">
+                {% if tx.type == 'income' %}+{% elif tx.type == 'expense' %}−{% else %}⇄{% endif %}Rp {{ "{:,.0f}".format(tx.amount) }}
+            </div>
+            <form method="POST" style="margin-left:.5rem;">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="tx_id" value="{{ tx.id }}">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus transaksi ini?')" title="Hapus">✕</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>Belum ada transaksi. Mulai catat pemasukan atau pengeluaranmu!</p>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Spending Limits ── #}
+<div class="card" style="margin-top:1rem;">
+    <div class="card-header">
+        <h2>⚠️ Batas Pengeluaran Bulan Ini</h2>
+        <button onclick="this.closest('.card').querySelector('#limitForm').style.display=this.closest('.card').querySelector('#limitForm').style.display==='none'?'block':'none'" class="btn btn-ghost btn-sm">+ Set Limit</button>
+    </div>
+    <div id="limitForm" style="display:none;margin-bottom:1rem;">
+        <form method="POST" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;">
+            <input type="hidden" name="action" value="set_limit">
+            <div class="form-group" style="flex:2;min-width:150px;margin-bottom:0;">
+                <label class="form-label">Kategori</label>
+                <select name="limit_category" class="form-control">
+                    {% for cat in expense_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="flex:2;min-width:150px;margin-bottom:0;">
+                <label class="form-label">Batas (Rp/Bulan)</label>
+                <input type="number" name="limit_amount" class="form-control" required step="0.01" placeholder="Contoh: 1500000">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">💾 Simpan</button>
+        </form>
+    </div>
+    {% if limits %}
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
+        {% for lim in limits %}
+        <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:.25rem;">
+                <span style="font-weight:700;font-size:.9rem;">{{ lim.category }}</span>
+                <span style="font-size:.85rem;color:{% if lim.pct >= 100 %}var(--danger){% elif lim.pct >= 80 %}var(--warning){% else %}var(--text-muted){% endif %};font-weight:700;">
+                    Rp {{ "{:,.0f}".format(lim.spent) }} / Rp {{ "{:,.0f}".format(lim.limit_amount) }} ({{ lim.pct }}%)
+                </span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill {% if lim.pct >= 100 %}full{% endif %}" style="width:{{ [lim.pct,100]|min }}%;background:{% if lim.pct >= 100 %}var(--danger){% elif lim.pct >= 80 %}var(--warning){% else %}var(--primary){% endif %};"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted);font-size:.9rem;font-weight:600;">Belum ada batas pengeluaran. Klik "+ Set Limit" untuk mengatur.</p>
+    {% endif %}
+</div>
+
+<script>
+function switchType(type) {
+    const incOpts = document.getElementById('incomeOpts');
+    const expOpts = document.getElementById('expenseOpts');
+    const btn = document.getElementById('submitBtn');
+    if (type === 'income') {
+        incOpts.style.display = ''; expOpts.style.display = 'none';
+        btn.textContent = '💚 Catat Pemasukan';
+        btn.style.background = 'var(--success)'; btn.style.color = '#fff';
+    } else {
+        incOpts.style.display = 'none'; expOpts.style.display = '';
+        btn.textContent = '❤️ Catat Pengeluaran';
+        btn.style.background = 'var(--danger)'; btn.style.color = '#fff';
+    }
+    document.getElementById('categorySelect').selectedIndex = 0;
+}
+function switchWallet(method) {
+    const cashGroup = document.getElementById('cashWalletGroup');
+    const digGroup  = document.getElementById('digitalWalletGroup');
+    if (method === 'cash') {
+        cashGroup.style.display = ''; digGroup.style.display = 'none';
+    } else {
+        cashGroup.style.display = 'none'; digGroup.style.display = '';
+    }
+    document.getElementById('walletSelect').selectedIndex = 0;
+}
+function toggleAddForm() {
+    const p = document.getElementById('addFormPanel');
+    p.classList.toggle('open');
+}
+</script>
+{% endblock %}

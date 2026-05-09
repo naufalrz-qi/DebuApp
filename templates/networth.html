@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Net Worth{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📈 Net Worth</h1>
+    <p>Kekayaan bersih = Total Aset − Total Hutang</p>
+</div>
+
+{# Net Worth Summary #}
+<div class="grid-4" style="margin-bottom:1.5rem;">
+    <div class="stat-card success">
+        <div class="stat-label">💚 Total Aset</div>
+        <div class="stat-value success">Rp {{ "{:,.0f}".format(total_assets) }}</div>
+        <div class="stat-sub">{{ assets|length }} aset tercatat</div>
+    </div>
+    <div class="stat-card danger">
+        <div class="stat-label">❤️ Total Hutang</div>
+        <div class="stat-value danger">Rp {{ "{:,.0f}".format(total_liabilities) }}</div>
+        <div class="stat-sub">Sisa semua hutang</div>
+    </div>
+    <div class="stat-card {% if net_worth >= 0 %}info{% else %}danger{% endif %}" style="grid-column:span 2;">
+        <div class="stat-label">🏦 Net Worth</div>
+        <div class="stat-value {% if net_worth >= 0 %}info{% else %}danger{% endif %}" style="font-size:1.6rem;">
+            Rp {{ "{:,.0f}".format(net_worth) }}
+        </div>
+        <div class="stat-sub">{% if net_worth >= 0 %}✅ Aset > Hutang — kondisi positif!{% else %}⚠️ Hutang melebihi aset — fokus kurangi hutang{% endif %}</div>
+    </div>
+</div>
+
+{% if total_assets > 0 %}
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header"><h2>📊 Komposisi</h2></div>
+    <div class="progress-track" style="height:18px;border-radius:9px;overflow:hidden;display:flex;">
+        {% set asset_pct = [total_assets / (total_assets + total_liabilities) * 100, 100]|min if (total_assets + total_liabilities) > 0 else 0 %}
+        <div style="width:{{ asset_pct }}%;background:var(--success);transition:width 0.8s ease;"></div>
+        <div style="flex:1;background:var(--danger);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.75rem;color:var(--text-muted);">
+        <span>💚 Aset {{ asset_pct|round(1) }}%</span>
+        <span>❤️ Hutang {{ (100 - asset_pct)|round(1) }}%</span>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid-2">
+    {# Form Tambah Aset #}
+    <div class="card">
+        <div class="card-header"><h2>➕ Tambah / Perbarui Aset</h2></div>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-group">
+                <label class="form-label">Nama Aset</label>
+                <input type="text" name="name" class="form-control" required placeholder="Contoh: Tabungan BCA, Mobil, Emas">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Kategori</label>
+                <select name="category" class="form-control">
+                    {% for cat in asset_categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nilai (Rp)</label>
+                <input type="number" name="value" class="form-control" required step="0.01" placeholder="Nilai saat ini">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Catatan</label>
+                <input type="text" name="notes" class="form-control" placeholder="Opsional">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">💾 Simpan Aset</button>
+        </form>
+    </div>
+
+    {# Daftar Aset per Kategori #}
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+        {% if by_cat %}
+        {% for cat, cat_assets in by_cat.items() %}
+        <div class="card">
+            <div class="card-header">
+                <h2 style="font-size:0.9rem;">{{ cat }}</h2>
+                <span style="font-weight:700;color:var(--success);">Rp {{ "{:,.0f}".format(cat_assets|sum(attribute='value')) }}</span>
+            </div>
+            {% for a in cat_assets %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border-light);">
+                <div>
+                    <div style="font-size:0.85rem;font-weight:600;">{{ a.name }}</div>
+                    {% if a.notes %}<div style="font-size:0.72rem;color:var(--text-muted);">{{ a.notes }}</div>{% endif %}
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span style="font-weight:700;color:var(--success);font-size:0.85rem;">Rp {{ "{:,.0f}".format(a.value) }}</span>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="asset_id" value="{{ a.id }}">
+                        <button type="submit" class="btn btn-danger btn-sm" style="padding:0.2rem 0.45rem;font-size:0.7rem;" onclick="return confirm('Hapus aset {{ a.name }}?')">✕</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="card">
+            <div class="empty-state">
+                <div class="empty-icon">💼</div>
+                <p>Belum ada aset. Tambahkan tabungan, investasi, atau propertimu!</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

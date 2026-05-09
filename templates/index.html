@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DebuApp - Pengatur Hutang & Budget</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DebuApp</h1>
+            <p>Berhenti overthinking, biarkan aku yang menghitungnya untukmu. Baka!</p>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Budget Overview Section -->
+            <div class="card budget-card">
+                <h2>Overview Budget Bulan Ini</h2>
+                
+                <form method="POST" class="budget-form">
+                    <input type="hidden" name="update_budget" value="1">
+                    <div class="form-group inline">
+                        <label for="budget_amount">Total Pendapatan / Budget (Rp)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="budget_amount" name="budget_amount" value="{{ budget }}" step="0.01" required>
+                            <button type="submit" class="btn btn-primary">Update</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="stats-grid">
+                    <div class="stat-box primary">
+                        <h3>Sisa Budget (Bulan Ini)</h3>
+                        <p class="amount">Rp {{ "{:,.0f}".format(available_budget) }}</p>
+                        <small>Setelah dipotong cicilan</small>
+                    </div>
+                    <div class="stat-box">
+                        <h3>Budget Harian</h3>
+                        <p class="amount">Rp {{ "{:,.0f}".format(daily_budget) }}</p>
+                    </div>
+                    <div class="stat-box">
+                        <h3>Budget Mingguan</h3>
+                        <p class="amount">Rp {{ "{:,.0f}".format(weekly_budget) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debt Summary Section -->
+            <div class="card debt-summary-card">
+                <h2>Ringkasan Hutang</h2>
+                <div class="stats-grid double">
+                    <div class="stat-box danger">
+                        <h3>Total Sisa Hutang</h3>
+                        <p class="amount">Rp {{ "{:,.0f}".format(total_debt) }}</p>
+                    </div>
+                    <div class="stat-box warning">
+                        <h3>Total Cicilan (Per Bulan)</h3>
+                        <p class="amount">Rp {{ "{:,.0f}".format(total_installment) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Add Debt Section -->
+            <div class="card add-debt-card">
+                <h2>Tambah Hutang Baru</h2>
+                <form method="POST">
+                    <input type="hidden" name="add_debt" value="1">
+                    <div class="form-group">
+                        <label for="name">Nama Hutang / Pinjaman</label>
+                        <input type="text" id="name" name="name" required placeholder="Contoh: Cicilan Motor">
+                    </div>
+                    <div class="form-group">
+                        <label for="total_amount">Total Hutang (Rp)</label>
+                        <input type="number" id="total_amount" name="total_amount" step="0.01" required placeholder="Contoh: 15000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="tenure_months">Tenor (Bulan)</label>
+                        <input type="number" id="tenure_months" name="tenure_months" required placeholder="Contoh: 12">
+                    </div>
+                    <div class="form-group">
+                        <label for="start_date">Tanggal Mulai Hutang</label>
+                        <input type="date" id="start_date" name="start_date">
+                    </div>
+                    <button type="submit" class="btn btn-primary full-width">Tambah Hutang</button>
+                </form>
+            </div>
+
+            <!-- Debt List Section -->
+            <div class="card debt-list-card">
+                <h2>Daftar Hutang Aktif</h2>
+                <div class="debt-list">
+                    {% if debts %}
+                        {% for debt in debts %}
+                        <div class="debt-item">
+                            <div class="debt-info">
+                                <h3>{{ debt.name }} 
+                                    {% if debt.start_date.year > today.year or (debt.start_date.year == today.year and debt.start_date.month > today.month) %}
+                                    <span style="background:var(--text-muted);color:white;padding:2px 8px;border-radius:12px;font-size:0.75rem;margin-left:0.5rem;vertical-align:middle;">Belum Mulai</span>
+                                    {% elif debt.is_paid_this_month %}
+                                    <span style="background:var(--success);color:white;padding:2px 8px;border-radius:12px;font-size:0.75rem;margin-left:0.5rem;vertical-align:middle;">Sudah Dibayar</span>
+                                    {% else %}
+                                    <span style="background:var(--danger);color:white;padding:2px 8px;border-radius:12px;font-size:0.75rem;margin-left:0.5rem;vertical-align:middle;">Belum Dibayar</span>
+                                    {% endif %}
+                                </h3>
+                                <p>Sisa: Rp {{ "{:,.0f}".format(debt.remaining_amount) }} | Tenor: {{ debt.tenure_months }} bulan</p>
+                                <p class="installment">Cicilan: Rp {{ "{:,.0f}".format(debt.monthly_installment) }} / bulan</p>
+                            </div>
+                            <div class="debt-actions" style="display:flex; gap:0.5rem; flex-direction:column; align-items:flex-end;">
+                                {% if not debt.is_paid_this_month and debt.remaining_amount > 0 %}
+                                <form method="POST" class="pay-form" style="display:flex; gap:0.5rem; align-items:center;">
+                                    <input type="hidden" name="pay_debt" value="1">
+                                    <input type="hidden" name="debt_id" value="{{ debt.id }}">
+                                    <input type="number" name="pay_months" value="1" min="1" style="width:60px; padding:0.25rem;" title="Jumlah bulan yang dibayar">
+                                    <span style="font-size:0.875rem; color:var(--text-muted);">Bulan</span>
+                                    <button type="submit" class="btn btn-primary" style="padding:0.5rem; font-size:0.875rem;">Bayar</button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" class="delete-form">
+                                    <input type="hidden" name="delete_debt" value="1">
+                                    <input type="hidden" name="debt_id" value="{{ debt.id }}">
+                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Hapus hutang ini dari daftar?');">Hapus</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="empty-state">Hmph, baguslah kamu nggak punya hutang. Lanjutkan!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
