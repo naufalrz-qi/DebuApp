@@ -709,5 +709,131 @@ def networth_page():
         total_liabilities=total_liabilities, net_worth=net_worth,
         by_cat=by_cat, asset_categories=ASSET_CATEGORIES)
 
+# ─── Simulasi Budget ────────────────────────────────────────
+
+@app.route('/simulasi')
+def simulasi_page():
+    today = date.today()
+
+    # ── Data aktual bulan ini ──
+    actual_income, actual_expense, txs = get_monthly_cashflow(today.month, today.year)
+
+    debts = Debt.query.all()
+    for d in debts:
+        enrich_debt(d, today)
+
+    active_debts = [d for d in debts if not d.not_started and d.remaining_amount > 0]
+    unpaid = [d for d in active_debts if not d.is_paid_this_month]
+    total_installment = sum(d.monthly_installment for d in unpaid)
+
+    saldo_bersih = actual_income - actual_expense - total_installment
+
+    # ── Input simulasi dari query params ──
+    extra_income = float(request.args.get('extra_income', 0))
+
+    # ── Hitung sisa hari (besok s.d akhir bulan) ──
+    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    remaining_days = days_in_month - today.day
+    if remaining_days < 1:
+        remaining_days = 1  # fallback jika hari terakhir
+
+    # ── Budget harian & mingguan ──
+    available = saldo_bersih + extra_income
+    daily_budget = available / remaining_days if remaining_days > 0 else 0
+    weekly_budget = daily_budget * 7
+
+    # ── Proyeksi 3 bulan ke depan ──
+    # Asumsi: pola pemasukan & pengeluaran tetap, hutang berkurang per bulan
+    projection = []
+    proj_income = actual_income + extra_income  # asumsi pemasukan stabil
+    proj_expense = actual_expense  # asumsi pengeluaran stabil
+
+    proj_debts_remaining = sum(d.remaining_amount for d in debts if d.remaining_amount > 0)
+    proj_monthly_installment = sum(d.monthly_installment for d in active_debts)
+
+    for i in range(1, 4):
+        pm = today.month + i
+        py = today.year
+        while pm > 12:
+            pm -= 12
+            py += 1
+
+        # Hutang berkurang tiap bulan
+        proj_debts_remaining = max(0, proj_debts_remaining - proj_monthly_installment)
+        # Jika hutang sudah 0, cicilan juga 0
+        eff_installment = min(proj_monthly_installment, proj_debts_remaining + proj_monthly_installment)
+
+        proj_saldo = proj_income - proj_expense - eff_installment
+        projection.append({
+            'label': f'{MONTH_NAMES[pm-1]} {py}',
+            'income': proj_income,
+            'expense': proj_expense,
+            'installment': eff_installment,
+            'saldo': proj_saldo,
+            'debt_remaining': proj_debts_remaining,
+        })
+
+    # ── Timeline hutang lunas ──
+    debt_timeline = []
+    total_remaining_payments = 0
+    for d in debts:
+        if d.remaining_amount > 0 and d.monthly_installment > 0:
+            months_left = math.ceil(d.remaining_amount / d.monthly_installment)
+            payoff_date = add_months(today, months_left)
+            total_remaining_payments += d.remaining_amount
+            debt_timeline.append({
+                'name': d.name,
+                'remaining': d.remaining_amount,
+                'installment': d.monthly_installment,
+                'months_left': months_left,
+                'payoff_date': payoff_date,
+            })
+    debt_timeline.sort(key=lambda x: x['months_left'])
+
+    # ── Tips otomatis ──
+    tips = []
+    if daily_budget < 0:
+        tips.append({'type': 'danger', 'icon': '🚨',
+                     'text': f'Budget harian negatif! Anda sudah melebihi anggaran bulan ini sebesar Rp {abs(available):,.0f}. Kurangi pengeluaran segera.'})
+    elif daily_budget < 30000:
+        tips.append({'type': 'warning', 'icon': '⚠️',
+                     'text': f'Budget harian Anda sangat ketat (Rp {daily_budget:,.0f}/hari). Prioritaskan kebutuhan pokok saja.'})
+    elif daily_budget < 75000:
+        tips.append({'type': 'info', 'icon': '💡',
+                     'text': f'Budget harian Anda cukup (Rp {daily_budget:,.0f}/hari). Tetap bijak dalam pengeluaran.'})
+    else:
+        tips.append({'type': 'success', 'icon': '✅',
+                     'text': f'Budget harian Anda sehat (Rp {daily_budget:,.0f}/hari). Sisihkan sebagian untuk tabungan!'})
+
+    if total_installment > 0 and actual_income > 0:
+        debt_ratio = total_installment / actual_income * 100
+        if debt_ratio > 40:
+            tips.append({'type': 'danger', 'icon': '💳',
+                         'text': f'Cicilan menyerap {debt_ratio:.0f}% pendapatan. Hindari hutang baru dan fokus pelunasan.'})
+
+    if extra_income == 0 and saldo_bersih < actual_income * 0.2:
+        tips.append({'type': 'info', 'icon': '🔮',
+                     'text': 'Coba masukkan estimasi pemasukan tambahan di atas untuk melihat dampaknya terhadap budget harian.'})
+
+    return render_template('simulasi.html',
+        active_page='simulasi',
+        today=today,
+        month_name=MONTH_NAMES[today.month - 1],
+        year=today.year,
+        actual_income=actual_income,
+        actual_expense=actual_expense,
+        total_installment=total_installment,
+        saldo_bersih=saldo_bersih,
+        extra_income=extra_income,
+        available=available,
+        remaining_days=remaining_days,
+        daily_budget=daily_budget,
+        weekly_budget=weekly_budget,
+        projection=projection,
+        debt_timeline=debt_timeline,
+        total_remaining_payments=total_remaining_payments,
+        tips=tips,
+    )
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5000)

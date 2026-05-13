@@ -68,8 +68,7 @@ a{color:var(--secondary);text-decoration:none;}
 .container{max-width:1280px;margin:0 auto;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;}
-@media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr;}.grid-2{grid-template-columns:1fr;}}
-@media(max-width:500px){.grid-4{grid-template-columns:1fr;}}
+/* Responsive overrides are at the bottom of this file */
 
 /* PAGE HEADER */
 .page-header{margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px dashed var(--border-light);}
@@ -274,10 +273,334 @@ select.form-control option{background:#fff;color:var(--text);}
 .budget-row-label{font-size:.88rem;color:var(--text-muted);font-weight:600;}
 .budget-row-val{font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:700;}
 
-/* RESPONSIVE */
+/* SIMULASI */
+.sim-summary{display:flex;flex-direction:column;gap:0;}
+.sim-row{display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--border-light);font-size:.88rem;font-weight:600;}
+.sim-row:last-child{border-bottom:none;}
+.sim-row-total{border-top:2px solid var(--border-light);padding-top:.6rem;margin-top:.15rem;border-bottom:none;}
+.sim-label{color:var(--text-muted);}
+.sim-val{font-family:'Fredoka',sans-serif;font-weight:700;}
+
+.sim-result-card{border-color:var(--secondary) !important;box-shadow:4px 4px 0 var(--secondary) !important;}
+
+.sim-proj-card{
+  padding:.75rem .85rem;border:2px solid var(--border-light);border-radius:var(--radius-sm);
+  background:var(--card-bg);transition:transform var(--transition);
+}
+.sim-proj-card:hover{transform:translateX(3px);}
+.sim-proj-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem;}
+.sim-proj-month{font-family:'Fredoka',sans-serif;font-size:.88rem;font-weight:700;color:var(--secondary);}
+.sim-proj-saldo{font-family:'Fredoka',sans-serif;font-size:1rem;font-weight:800;}
+.sim-proj-details{display:flex;gap:.75rem;font-size:.72rem;color:var(--text-muted);font-weight:600;}
+
+.sim-debt-item{
+  padding:.65rem .75rem;border:2px solid var(--border-light);border-radius:var(--radius-sm);
+  background:var(--card-bg);
+}
+
+.text-success{color:var(--success);}
+.text-danger{color:var(--danger);}
+.text-warning{color:var(--warning);}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — Minimalist, Fluid, App-Like
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet breakpoint ── */
+@media(max-width:900px){
+  .grid-4{grid-template-columns:1fr 1fr;}
+  .grid-2{grid-template-columns:1fr;}
+}
+
+/* ── Phone breakpoint ── */
 @media(max-width:600px){
-  .main-content{padding:1rem;}
-  .cashflow-bar{gap:.5rem;}
+
+  /* ─── Reset: Strip heavy desktop decoration ─── */
+  body{
+    padding-bottom:68px;              /* room for bottom nav */
+    font-size:.9rem;
+  }
+  body::before{display:none;}         /* kill perspective grid */
+  body::after {display:none;}         /* kill ⚡ ★ ⚡ deco      */
+
+  /* ─── Navbar → slim top header ─── */
+  .navbar{
+    position:relative; z-index:10;
+    border-bottom:none;
+    box-shadow:0 1px 6px rgba(26,26,78,.12);
+    padding:0;
+  }
+  .nav-container{
+    justify-content:center;
+    padding:.55rem .75rem;
+  }
+  .nav-brand{font-size:1rem; gap:.35rem;}
+  .nav-brand .brand-icon{font-size:1.15rem;}
+
+  /* ─── Bottom Navigation ─── */
+  .nav-links{
+    position:fixed; bottom:0; left:0; right:0;
+    background:#fff;
+    border-top:1px solid rgba(26,26,78,.1);
+    box-shadow:0 -2px 12px rgba(26,26,78,.08);
+    display:flex; justify-content:space-around; align-items:stretch;
+    padding:0;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    z-index:1000;
+    gap:0;
+  }
+  .nav-link{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.15rem;
+    font-size:.6rem; font-weight:700; letter-spacing:.02em;
+    padding:.45rem .2rem;
+    border:none; border-radius:0;
+    color:var(--text-light);
+    flex:1;
+    background:transparent;
+    transition:color .15s ease, background .15s ease;
+    text-decoration:none;
+  }
+  .nav-link .nav-icon{font-size:1.15rem; line-height:1;}
+  .nav-link .nav-text{line-height:1;}
+  .nav-link:hover{
+    background:transparent; color:var(--secondary); border:none;
+  }
+  .nav-link.active{
+    color:var(--primary);
+    background:rgba(255,20,147,.06);
+    border:none; text-shadow:none;
+    box-shadow:none; transform:none;
+  }
+
+  /* ─── Layout ─── */
+  .main-content{padding:.75rem .85rem;}
+  .container{max-width:100%;}
+  .grid-4{grid-template-columns:1fr 1fr; gap:.6rem;}
+  .grid-2{grid-template-columns:1fr; gap:.75rem;}
+
+  /* ─── Page Header — compact ─── */
+  .page-header{
+    margin-bottom:.85rem; padding-bottom:.6rem;
+    border-bottom:1px solid rgba(212,197,249,.4);
+  }
+  .page-header h1{
+    font-size:1.25rem; text-shadow:none;
+    margin-bottom:.15rem;
+  }
+  .page-header p{font-size:.78rem;}
+
+  /* ─── Cards — clean, minimal ─── */
+  .card{
+    border:1px solid rgba(26,26,78,.1);
+    border-radius:12px;
+    box-shadow:0 1px 4px rgba(26,26,78,.06);
+    padding:.85rem;
+  }
+  .card::before{height:3px; border-radius:12px 12px 0 0;}
+  .card:hover{transform:none; box-shadow:0 1px 4px rgba(26,26,78,.06);}
+
+  .card-header{
+    margin-bottom:.6rem; padding-bottom:.45rem;
+    border-bottom:1px solid rgba(212,197,249,.3);
+  }
+  .card-header h2{font-size:.85rem; gap:.35rem;}
+
+  /* ─── Stat Cards — compact & clean ─── */
+  .stat-card{
+    border-width:1px; border-radius:10px;
+    box-shadow:0 1px 3px rgba(26,26,78,.06);
+    padding:.7rem .8rem;
+  }
+  .stat-card:hover{transform:none; box-shadow:0 1px 3px rgba(26,26,78,.06);}
+  .stat-card.success{border-color:rgba(0,206,209,.35);}
+  .stat-card.danger {border-color:rgba(255,71,87,.3);}
+  .stat-card.warning{border-color:rgba(255,140,0,.3);}
+  .stat-card.info   {border-color:rgba(168,85,247,.3);}
+  .stat-label{font-size:.65rem; margin-bottom:.2rem;}
+  .stat-value{font-size:1.2rem; margin-bottom:.15rem;}
+  .stat-sub{font-size:.7rem;}
+
+  /* ─── Cashflow Bar — list style ─── */
+  .cashflow-bar{
+    flex-direction:column; align-items:stretch;
+    gap:0; padding:.7rem .85rem;
+    border-width:1px; border-color:rgba(26,26,78,.1);
+    box-shadow:0 1px 4px rgba(26,26,78,.06);
+  }
   .cashflow-sep{display:none;}
-  .nav-link{font-size:.75rem;padding:.35rem .6rem;}
+  .cashflow-item{
+    flex-direction:row; justify-content:space-between; align-items:center;
+    padding:.4rem 0;
+    border-bottom:1px solid rgba(212,197,249,.2);
+  }
+  .cashflow-item:last-child{border-bottom:none;}
+  .cf-label{font-size:.65rem;}
+  .cf-val{font-size:1rem;}
+
+  /* ─── Buttons — rounded, touch-friendly ─── */
+  .btn{
+    min-height:42px;
+    border-width:1.5px; border-radius:8px;
+    box-shadow:0 1px 3px rgba(26,26,78,.08);
+    padding:.5rem .9rem;
+    font-size:.82rem;
+  }
+  .btn:hover{transform:none; box-shadow:0 1px 3px rgba(26,26,78,.08);}
+  .btn:active{transform:scale(.97); box-shadow:none;}
+  .btn-sm{
+    min-height:34px;
+    padding:.3rem .6rem; font-size:.72rem;
+    border-radius:6px;
+    box-shadow:0 1px 2px rgba(26,26,78,.06);
+  }
+  .btn-ghost{
+    border-color:rgba(123,47,190,.3);
+    box-shadow:0 1px 2px rgba(123,47,190,.08);
+  }
+
+  /* ─── Forms — comfortable touch ─── */
+  .form-group{margin-bottom:.7rem;}
+  .form-label{font-size:.75rem; margin-bottom:.25rem;}
+  .form-control{
+    min-height:42px;
+    padding:.5rem .7rem;
+    border-width:1.5px; border-radius:8px;
+    font-size:.85rem;
+  }
+  .form-control:focus{
+    box-shadow:0 0 0 2px rgba(255,20,147,.12);
+  }
+
+  /* ─── Toggle buttons ─── */
+  .tx-type-toggle{
+    gap:4px; padding:3px;
+    border-width:1.5px; border-radius:8px;
+  }
+  .tx-type-btn{
+    min-height:38px;
+    padding:.4rem .3rem;
+    font-size:.78rem;
+    border-radius:6px;
+  }
+  .recurring-toggle{
+    min-height:38px;
+    font-size:.78rem;
+    border-width:1.5px; border-radius:6px;
+    padding:.4rem .6rem;
+  }
+
+  /* ─── Alerts — slim ─── */
+  .alert{
+    padding:.55rem .75rem;
+    border-width:1px; border-radius:8px;
+    font-size:.78rem;
+    margin-bottom:.5rem;
+  }
+
+  /* ─── Badges — smaller ─── */
+  .badge{font-size:.62rem; padding:.12rem .4rem; border-width:1px;}
+
+  /* ─── Progress bars — thinner ─── */
+  .progress-track{height:8px; border-width:1px; border-color:rgba(26,26,78,.12);}
+  .progress-label{font-size:.68rem; margin-top:.2rem;}
+
+  /* ─── Wallet cards — subtle ─── */
+  .cash-card{
+    border-color:rgba(0,206,209,.25) !important;
+    box-shadow:0 1px 4px rgba(0,206,209,.08) !important;
+  }
+  .digital-card{
+    border-color:rgba(123,47,190,.25) !important;
+    box-shadow:0 1px 4px rgba(123,47,190,.08) !important;
+  }
+  .wallet-row{
+    padding:.35rem 0; font-size:.82rem;
+    border-bottom:1px solid rgba(212,197,249,.2);
+  }
+  .wallet-net{border-top:1px solid rgba(212,197,249,.3) !important;}
+
+  /* ─── Transaction list — compact ─── */
+  .tx-item{
+    gap:.6rem; padding:.55rem .25rem;
+    border-bottom:1px solid rgba(212,197,249,.2);
+  }
+  .tx-icon{font-size:1rem;}
+  .tx-category{font-size:.78rem; margin-bottom:.1rem;}
+  .tx-desc{font-size:.7rem;}
+  .tx-amount{font-size:.88rem;}
+
+  /* ─── Debt list — fluid ─── */
+  .debt-item{padding:.7rem 0;}
+  .debt-item:not(:last-child){border-bottom:1px solid rgba(212,197,249,.2);}
+  .debt-item-top{
+    flex-direction:column; align-items:stretch; gap:.35rem;
+  }
+  .debt-item-top > div:last-child{
+    display:flex; justify-content:space-between; align-items:center;
+    text-align:left; width:100%;
+  }
+  .debt-name{font-size:.82rem; gap:.3rem;}
+  .debt-meta{font-size:.72rem;}
+  .debt-actions{
+    gap:.35rem; margin-top:.45rem;
+  }
+
+  /* ─── Rec cards — lighter ─── */
+  .rec-card{
+    padding:.6rem .7rem;
+    border-width:1px; border-radius:8px;
+    gap:.6rem;
+  }
+  .rec-icon{font-size:1.1rem;}
+  .rec-title{font-size:.78rem; margin-bottom:.15rem;}
+  .rec-text{font-size:.73rem; line-height:1.5;}
+
+  /* ─── Goal card ─── */
+  .goal-card{
+    border-color:rgba(255,140,0,.25) !important;
+    box-shadow:0 1px 4px rgba(255,140,0,.08) !important;
+  }
+
+  /* ─── Empty state ─── */
+  .empty-state{padding:2rem .75rem;}
+  .empty-icon{font-size:2.2rem;}
+  .empty-state p{font-size:.85rem;}
+
+  /* ─── Misc ─── */
+  .add-form-panel.open{max-height:800px;}
+  .input-row{flex-wrap:wrap;}
+  .add-form-toggle{
+    border-width:1.5px; border-radius:8px;
+    box-shadow:0 1px 3px rgba(26,26,78,.06);
+  }
+
+  /* ─── Tables (budget) — scroll ─── */
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table{font-size:.78rem;}
+  th,td{padding:.4rem .5rem;}
+
+  /* ─── Tab group ─── */
+  .tab-group{border-width:1.5px; border-radius:8px;}
+  .tab-btn{font-size:.75rem; padding:.4rem;}
+
+  /* ─── Simulasi ─── */
+  .sim-row{font-size:.78rem; padding:.35rem 0;}
+  .sim-row-total{border-top-width:1px;}
+  .sim-result-card{
+    border-color:rgba(123,47,190,.25) !important;
+    box-shadow:0 1px 4px rgba(123,47,190,.08) !important;
+  }
+  .sim-proj-card{
+    border-width:1px; border-radius:8px;
+    padding:.6rem .7rem;
+  }
+  .sim-proj-card:hover{transform:none;}
+  .sim-proj-month{font-size:.78rem;}
+  .sim-proj-saldo{font-size:.88rem;}
+  .sim-proj-details{gap:.5rem; font-size:.65rem; flex-wrap:wrap;}
+  .sim-debt-item{
+    border-width:1px; border-radius:8px;
+    padding:.55rem .65rem;
+  }
 }

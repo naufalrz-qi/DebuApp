@@ -14,11 +14,12 @@
                 <span class="brand-icon">💸</span> DebuApp
             </a>
             <div class="nav-links">
-                <a href="{{ url_for('dashboard') }}"        class="nav-link {% if active_page == 'dashboard'    %}active{% endif %}">📊 Dashboard</a>
-                <a href="{{ url_for('transactions_page') }}" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">💰 Transaksi</a>
-                <a href="{{ url_for('debts_page') }}"       class="nav-link {% if active_page == 'debts'        %}active{% endif %}">💳 Hutang</a>
-                <a href="{{ url_for('goals_page') }}"       class="nav-link {% if active_page == 'goals'        %}active{% endif %}">🎯 Goals</a>
-                <a href="{{ url_for('networth_page') }}"    class="nav-link {% if active_page == 'networth'     %}active{% endif %}">📈 Net Worth</a>
+                <a href="{{ url_for('dashboard') }}"        class="nav-link {% if active_page == 'dashboard'    %}active{% endif %}"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></a>
+                <a href="{{ url_for('transactions_page') }}" class="nav-link {% if active_page == 'transactions' %}active{% endif %}"><span class="nav-icon">💰</span><span class="nav-text">Transaksi</span></a>
+                <a href="{{ url_for('debts_page') }}"       class="nav-link {% if active_page == 'debts'        %}active{% endif %}"><span class="nav-icon">💳</span><span class="nav-text">Hutang</span></a>
+                <a href="{{ url_for('goals_page') }}"       class="nav-link {% if active_page == 'goals'        %}active{% endif %}"><span class="nav-icon">🎯</span><span class="nav-text">Goals</span></a>
+                <a href="{{ url_for('simulasi_page') }}"   class="nav-link {% if active_page == 'simulasi'     %}active{% endif %}"><span class="nav-icon">🔮</span><span class="nav-text">Simulasi</span></a>
+                <a href="{{ url_for('networth_page') }}"    class="nav-link {% if active_page == 'networth'     %}active{% endif %}"><span class="nav-icon">📈</span><span class="nav-text">Net Worth</span></a>
             </div>
         </div>
     </nav>

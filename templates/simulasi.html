@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Simulasi Budget{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>🔮 Simulasi Budget</h1>
+    <p>Hitung budget harian dari besok sampai akhir bulan — {{ month_name }} {{ year }}</p>
+</div>
+
+{# ── Posisi Keuangan Saat Ini ── #}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">📍</span>Posisi Keuangan Saat Ini</h2>
+        <span style="font-size:.75rem;color:var(--text-muted);">Per {{ today.strftime('%d %b %Y') }}</span>
+    </div>
+    <div class="sim-summary">
+        <div class="sim-row">
+            <span class="sim-label">💚 Pemasukan bulan ini</span>
+            <span class="sim-val" style="color:var(--success);">+Rp {{ "{:,.0f}".format(actual_income) }}</span>
+        </div>
+        <div class="sim-row">
+            <span class="sim-label">❤️ Pengeluaran bulan ini</span>
+            <span class="sim-val" style="color:var(--danger);">−Rp {{ "{:,.0f}".format(actual_expense) }}</span>
+        </div>
+        <div class="sim-row">
+            <span class="sim-label">💳 Cicilan hutang (belum bayar)</span>
+            <span class="sim-val" style="color:var(--warning);">−Rp {{ "{:,.0f}".format(total_installment) }}</span>
+        </div>
+        <div class="sim-row sim-row-total">
+            <span class="sim-label"><b>🏦 Saldo Bersih</b></span>
+            <span class="sim-val" style="color:{% if saldo_bersih >= 0 %}var(--secondary){% else %}var(--danger){% endif %};font-size:1.15rem;">
+                <b>Rp {{ "{:,.0f}".format(saldo_bersih) }}</b>
+            </span>
+        </div>
+    </div>
+</div>
+
+{# ── Form Input Simulasi ── #}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">💰</span>Estimasi Pemasukan Tambahan</h2>
+    </div>
+    <form method="GET" action="{{ url_for('simulasi_page') }}">
+        <div class="form-group">
+            <label class="form-label">Estimasi tambahan pemasukan bulan ini (Rp)</label>
+            <input type="number" name="extra_income" class="form-control" step="1000"
+                   placeholder="Contoh: 500000 (gaji kedua, bonus, freelance...)"
+                   value="{{ extra_income if extra_income > 0 else '' }}">
+            <div style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;">
+                Masukkan jika Anda tahu masih akan menerima uang lagi bulan ini. Kosongkan jika tidak ada.
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">🔮 Hitung Simulasi</button>
+    </form>
+</div>
+
+{# ── Hasil Simulasi: Budget Harian ── #}
+<div class="card sim-result-card" style="margin-bottom:1rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">📊</span>Budget Sisa Bulan Ini</h2>
+        <span class="badge {% if daily_budget >= 75000 %}badge-success{% elif daily_budget >= 0 %}badge-warning{% else %}badge-danger{% endif %}">
+            {{ remaining_days }} hari tersisa
+        </span>
+    </div>
+
+    {% if extra_income > 0 %}
+    <div class="alert alert-info" style="margin-bottom:.75rem;">
+        💡 Termasuk estimasi pemasukan tambahan: <b>+Rp {{ "{:,.0f}".format(extra_income) }}</b>
+        → Dana tersedia: <b>Rp {{ "{:,.0f}".format(available) }}</b>
+    </div>
+    {% endif %}
+
+    <div class="grid-2" style="margin-bottom:1rem;">
+        <div class="stat-card {% if daily_budget >= 0 %}success{% else %}danger{% endif %}">
+            <div class="stat-label">💵 Budget Harian</div>
+            <div class="stat-value {% if daily_budget >= 0 %}success{% else %}danger{% endif %}">
+                Rp {{ "{:,.0f}".format(daily_budget) }}
+            </div>
+            <div class="stat-sub">Besok s.d akhir {{ month_name }}</div>
+        </div>
+        <div class="stat-card {% if weekly_budget >= 0 %}info{% else %}danger{% endif %}">
+            <div class="stat-label">📅 Budget Mingguan</div>
+            <div class="stat-value {% if weekly_budget >= 0 %}info{% else %}danger{% endif %}">
+                Rp {{ "{:,.0f}".format(weekly_budget) }}
+            </div>
+            <div class="stat-sub">Estimasi per 7 hari</div>
+        </div>
+    </div>
+
+    {# Visual: progress bar "terpakai vs tersisa" #}
+    {% if actual_income > 0 %}
+    <div style="margin-bottom:.5rem;">
+        <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted);margin-bottom:.25rem;">
+            <span>Sudah terpakai</span>
+            <span>{{ "{:.0f}".format((actual_expense + total_installment) / actual_income * 100) }}% dari pemasukan</span>
+        </div>
+        <div class="progress-track">
+            {% set used_pct = [(actual_expense + total_installment) / actual_income * 100, 100]|min %}
+            <div class="progress-fill" style="width:{{ used_pct }}%;background:{% if used_pct > 90 %}var(--danger){% elif used_pct > 70 %}var(--warning){% else %}var(--success){% endif %};"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Tips & Saran ── #}
+{% if tips %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">💡</span>Tips Berdasarkan Simulasi</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;">
+        {% for tip in tips %}
+        <div class="rec-card rec-{{ tip.type }}">
+            <div class="rec-icon">{{ tip.icon }}</div>
+            <div class="rec-text">{{ tip.text }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Proyeksi 3 Bulan Ke Depan ── #}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+        <h2><span class="card-title-icon">📈</span>Proyeksi 3 Bulan Ke Depan</h2>
+    </div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.75rem;">
+        Asumsi: pemasukan & pengeluaran tetap seperti bulan ini, cicilan hutang terbayar tepat waktu.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
+        {% for p in projection %}
+        <div class="sim-proj-card">
+            <div class="sim-proj-header">
+                <span class="sim-proj-month">{{ p.label }}</span>
+                <span class="sim-proj-saldo {% if p.saldo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    Rp {{ "{:,.0f}".format(p.saldo) }}
+                </span>
+            </div>
+            <div class="sim-proj-details">
+                <span>💚 {{ "{:,.0f}".format(p.income) }}</span>
+                <span>❤️ {{ "{:,.0f}".format(p.expense) }}</span>
+                <span>💳 {{ "{:,.0f}".format(p.installment) }}</span>
+            </div>
+            {% if p.debt_remaining > 0 %}
+            <div style="font-size:.68rem;color:var(--text-light);margin-top:.2rem;">
+                Sisa hutang: Rp {{ "{:,.0f}".format(p.debt_remaining) }}
+            </div>
+            {% else %}
+            <div style="font-size:.68rem;color:var(--success);margin-top:.2rem;">
+                🎉 Semua hutang lunas!
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Timeline Hutang Lunas ── #}
+{% if debt_timeline %}
+<div class="card">
+    <div class="card-header">
+        <h2><span class="card-title-icon">🏁</span>Timeline Pelunasan Hutang</h2>
+        <span style="font-size:.75rem;color:var(--text-muted);">
+            Total sisa: Rp {{ "{:,.0f}".format(total_remaining_payments) }}
+        </span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.6rem;">
+        {% for d in debt_timeline %}
+        <div class="sim-debt-item">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+                <div>
+                    <div style="font-weight:700;font-size:.85rem;color:var(--secondary);">{{ d.name }}</div>
+                    <div style="font-size:.72rem;color:var(--text-muted);">
+                        Cicilan: Rp {{ "{:,.0f}".format(d.installment) }}/bln · Sisa: {{ d.months_left }} bln
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:700;color:var(--warning);font-size:.85rem;">Rp {{ "{:,.0f}".format(d.remaining) }}</div>
+                    <div style="font-size:.68rem;color:var(--success);">Est. lunas: {{ d.payoff_date.strftime('%b %Y') }}</div>
+                </div>
+            </div>
+            <div class="progress-wrap" style="margin-top:.35rem;">
+                {% set paid_pct = [100 - (d.months_left / (d.remaining / d.installment if d.installment > 0 else 1) * 100), 100]|min if d.months_left > 0 else 100 %}
+                <div class="progress-track">
+                    <div class="progress-fill" style="width:{{ 100 - [d.months_left * 100 / (d.remaining / d.installment), 100]|min }}%;"></div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
