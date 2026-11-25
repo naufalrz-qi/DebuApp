@@ -113,6 +113,7 @@ def get_spending_alerts(month, year):
                            'limit': lim.limit_amount, 'pct': pct, 'over': pct >= 100})
     return alerts
 
+//ini untuk aplikasi recurring 
 def apply_recurring(target_month, target_year):
     pm = target_month - 1 if target_month > 1 else 12
     py = target_year if target_month > 1 else target_year - 1
